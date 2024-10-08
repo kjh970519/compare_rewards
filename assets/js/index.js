@@ -6,7 +6,7 @@ let api_info = {
             "method": "POST"
         },
     },
-    key: "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IktYMk40TkRDSTJ5NTA5NWpjTWk5TllqY2lyZyIsImtpZCI6IktYMk40TkRDSTJ5NTA5NWpjTWk5TllqY2lyZyJ9.eyJpc3MiOiJodHRwczovL2x1ZHkuZ2FtZS5vbnN0b3ZlLmNvbSIsImF1ZCI6Imh0dHBzOi8vbHVkeS5nYW1lLm9uc3RvdmUuY29tL3Jlc291cmNlcyIsImNsaWVudF9pZCI6IjEwMDAwMDAwMDA1NTcwNTIifQ.UJ5FYuzFns_ju4vjPM05bNChbMlS6kJ8EsrnTtG8gJswM4vo-0Be6u1HB018SaOMXDRkTlerJGDQuXKVyKBiLqdnK4qJIFuXvf_1XJsbfKmvMQL_GG5lefks7tyFVuroXDD60BZX9w5u2NPJSoEHlsLL15jDCXn4Zh2IMejrOsPsbmSORClGEr559q1Q68BswP6ZKe9JoRdqW6v4-TeeVwjJmWFQ0MFFo3OJeocrxFI2PriKClo2XYXtZ6u03NTNzhjkLdGCmbfgzTvGPtzFDdQzmW1_DKamhyMXLz_LiFZPxgKVrKEi1Lg61GrQlu39q3-UfgyqbHIn3on50DpJLg",
+    key: localStorage.getItem('apiKey'),
 }
 
 $(document).ready(function() {
@@ -32,6 +32,7 @@ $(document).ready(function() {
         fragment: {
             66130131: {cnt: 500}, // 명예의 파편 주머니(소)
             66130141: {cnt: 1000}, // 운명의 파편 주머니(소)
+            66130142: {cnt: 2000}, // 운명의 파편 주머니(중)
             66130111: {cnt: 500}, // 조화의 파편 주머니(소)
             66130121: {cnt: 1500}, // 조화의 파편 주머니(소)
             66130132: {cnt: 1000}, // 명예의 파편 주머니(중)
@@ -41,7 +42,7 @@ $(document).ready(function() {
             66130113: {cnt: 1500}, // 조화의 파편 주머니(대)
             66130123: {cnt: 4500}, // 조화의 파편 주머니(대)
         },
-        contents_list: contents_datas,
+        contents_list: JSON.parse(JSON.stringify(contents_datas)),
         cardGroupTemplate: $("#card_group_template").html(),
         cardTemplate: $("#card_template").html(),
         detailTemplate: $("#detail_template").html(),
@@ -96,7 +97,11 @@ $(document).ready(function() {
                 dt.getIngredientDatas(i+1, total_page);
 
             } catch (error) {
-                console.error('AJAX 실패:', error);
+                // console.error('AJAX 실패:', error);
+
+                // API 연동에 실패한 경우에도 골드 보상 정보를 출력하기 위해 진행
+                dt._watch.is_get_rewards = true;
+                return;
             }
 
         },
@@ -307,8 +312,18 @@ $(document).ready(function() {
             });
 
             dt.setDatas();
+
+            // 더보기 체크 유무
+            var _smc = localStorage.getItem('smc');
+            if (_smc == 1) {
+                $('.all-see-more-checkbox').prop("checked", _smc);
+            }
+            dt.allCheckSeeMore('.all-see-more-checkbox');
         },
         setDatas: function() {
+            var _isSetKey = localStorage.getItem('isSetKey');
+            $("#main").append('<div class="mb-2"><button class="btn-primary btn-sm" onclick="dt.setApiKey()">API KEY 등록/변경</button></div>');
+            $("#main").append('<div class="mb-3">전체 더보기 <input type="checkbox" class="all-see-more-checkbox" onchange="dt.allCheckSeeMore(this)"></div>');
             dt.contents_list.forEach(function(contents) {
                 var _cGroupTemplate = dt.cardGroupTemplate;
                 var _cTemplates = '';
@@ -343,36 +358,59 @@ $(document).ready(function() {
                             _dTemplate = _dTemplate.replace('{{title}}', _title)
                                                    .replace('{{gateway_rewards}}', _grTemplates)
                                                    .replace('{{gateway_gold}}', _ggTemplate);
-                            _dTemplates += `<div class="card-group"><div class="card border-primary mb-3">${_dTemplate}</div>`;
+                            _dTemplates += `<div class="card-group"><div class="card border-primary">${_dTemplate}</div>`;
 
                             // 더보기 처리
                             var _gsmTemplates = '';
                             var _smdTemplate = dt.seeMoreDetailTemplate;
                             var _gsmgTemplate = dt.gatewaySeeMoreTemplate;
+                            var _total_see_more_value = 0;
                             var _total_see_more_reward_value = 0;
                             $.each(difficulty.see_more[idx].ingredient, function(key, reward) {
                                 if (typeof difficulty.see_more[idx].ingredient[key] === 'object' && difficulty.see_more[idx].ingredient[key] !== null) {
                                     _gsmTemplates += `<p class="card-text"><img src="${difficulty.see_more[idx].ingredient[key].icon}" style="width: 30px;"> X ${difficulty.see_more[idx].ingredient[key].cnt.toLocaleString()}: ${difficulty.see_more[idx].ingredient[key].total_price.toLocaleString()}원</p>`;
-                                    // _total_reward_value += difficulty.see_more[idx].ingredient[key].total_price;
+                                    _total_see_more_value += difficulty.see_more[idx].ingredient[key].total_price;
                                 }
                                 else {
                                     _gsmTemplates += `<p class="card-text">${key} X ${reward}</p>`;
                                 }
                             });
-                            _gsmgTemplate = _gsmgTemplate.replace('{{gold}}', `<p style="color: red;">-${difficulty.see_more[idx].gold.toLocaleString()}</p>`);
+
+                            var _total_clear_value = 0;
+                            var _total_value = 0;
+
+                            _total_clear_value = (rewards.gold + _total_reward_value);
+                            _total_value = (_total_clear_value + difficulty.see_more[idx].gold + _total_see_more_value);
+
+                            _gsmgTemplate = _gsmgTemplate.replace('{{gold}}', `<span style="color: red;">-${difficulty.see_more[idx].gold.toLocaleString()}</span>`);
                             _smdTemplate = _smdTemplate.replace('{{title}}', '더보기')
                                 .replace('{{see_more_rewards}}', _gsmTemplates)
                                 .replace('{{see_more_gold}}', _gsmgTemplate);
-                            _dTemplates += `<div class="card border-primary mb-3">${_smdTemplate}</div></div>`;
+                            _dTemplates += `    <div class="card border-primary see-more-check">
+                                                    ${_smdTemplate}
+                                                </div>
+                                            </div>
+                                            <div class="card-header border-primary mb-3" style="border: 1px solid rgba(0, 0, 0, .125); border-top: none;">
+                                                <div class="total-clear-value" style="display: none;">
+                                                    합계: ${_total_clear_value.toLocaleString()}원
+                                                </div>
+                                                <div class="see-more-check">
+                                                    합계: ${_total_value.toLocaleString()} - <span style="color: red">${difficulty.see_more[idx].gold.toLocaleString()}원(더보기)</span> = ${(_total_value - difficulty.see_more[idx].gold).toLocaleString()}원
+                                                </div>
+                                            </div>`;
 
                             var _details = `${_dTemplates}`;
 
                             if (_gateway == difficulty.clear.length) {
                                 _cTemplate = _cTemplate.replace('{{title}}', _contents_title)
                                                        .replace('{{clear_gold}}', rewards.gold.toLocaleString())
-                                                       .replace('{{rewards_value}}', _total_reward_value.toLocaleString())
-                                                       // .replace('{{details}}', _dTemplates);
-                                                       .replace('{{details}}', _details);
+                                                       .replace('{{see_more_gold}}', difficulty.see_more[idx].gold.toLocaleString());
+
+                                if (_isSetKey == 1) {
+                                    _cTemplate = _cTemplate.replace('{{rewards_value}}', _total_reward_value.toLocaleString())
+                                                           .replace('{{see_more_rewards_value}}', _total_see_more_value.toLocaleString())
+                                                           .replace('{{details}}', _details)
+                                }
 
                                 _cTemplates += _cTemplate;
                             }
@@ -382,6 +420,9 @@ $(document).ready(function() {
                 _cGroupTemplate = _cGroupTemplate.replace('{{cards}}', _cTemplates);
                 $("#main").append(_cGroupTemplate);
             });
+            if (_isSetKey == 0) {
+                $(".is-key").hide();
+            }
         },
         viewDetail: function(obj) {
             var btn_title = "상세보기";
@@ -395,8 +436,111 @@ $(document).ready(function() {
                 $(obj).parent().children(".details").hide();
             }
             $(obj).html(btn_title);
+        },
+        checkSeeMore: function(obj) {
+            var is_checked = $(obj).prop("checked");
+            var parent = $(obj).parent().parent().parent();
+            if (is_checked) {
+                parent.find('.see-more-check').each(function() {
+                    $(this).show();
+                });
+                parent.find('.total-clear-value').each(function() {
+                    $(this).hide();
+                });
+            }
+            else {
+                parent.find('.see-more-check').each(function() {
+                    $(this).hide();
+                });
+                parent.find('.total-clear-value').each(function() {
+                    $(this).show();
+                });
+            }
+        },
+        allCheckSeeMore: function(obj) {
+            var is_checked = $(obj).prop("checked");
+            if (is_checked) {
+                $('.see-more-check').show();
+                $('.total-clear-value').hide();
+                $(".see-more-checkbox").prop("checked", true);
+                localStorage.setItem('smc', 1);
+            }
+            else {
+                $('.see-more-check').hide();
+                $('.total-clear-value').show();
+                $(".see-more-checkbox").prop("checked", false);
+                localStorage.setItem('smc', 0);
+            }
+        },
+        start: function() {
+            if (api_info.key) {
+                dt.checkApiKey(api_info.key)
+                    .then(function(data) {
+                        dt.init();
+                    })
+                    .catch(function(err) {
+                        dt.init();
+                        // console.log('Error:', err);
+                    });
+            }
+            else {
+                if (localStorage.getItem('isSetKey') == 0) {
+                    dt.init();
+                }
+                else {
+                    dt.setApiKey();
+                }
+            }
+        },
+        setApiKey: function() {
+            alertify.prompt('API KEY 등록',                                  // Title
+                '<a href="https://developer-lostark.game.onstove.com/clients" target="_blank">해당 링크</a>를 통해 API KEY를 발급할 수 있습니다.<br><span style="font-size: 12px;">* API KEY는 최초 등록시 해당 브라우저에 저장됩니다.</span><br><span style="font-size: 12px;">* API KEY를 등록하지 않을 시 클리어 보상만 제공되며 실시간 가치는 반영되지 않습니다.</span>', // Message with link
+                '',                                                    // Default value
+                function(evt, value) {                                 // Success callback
+                    if (dt.checkApiKey(value)) {
+                        dt.contents_list = JSON.parse(JSON.stringify(contents_datas));
+                        $("#main").empty();
+                        dt.init();
+                    }
+                },
+                function() {                                           // Cancel callback
+                    // alertify.error('Action canceled');
+                    localStorage.setItem('isSetKey', '0');
+                    dt.contents_list = JSON.parse(JSON.stringify(contents_datas));
+                    $("#main").empty();
+                    dt.start();
+                });
+        },
+        checkApiKey: function(key) {
+            api_info.key = key;
+            return new Promise(function(resolve, reject) {
+                let data = {
+                    CategoryCode: 50010,
+                    PageNo: 1,
+                    SortCondition: 'ASC'
+                };
+                $.ajax({
+                    url: api_info.links.items.url,
+                    type: api_info.links.items.method,
+                    headers: {
+                        'accept': 'application/json',
+                        'authorization': `bearer ${key}`
+                    },
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function (r) {
+                        localStorage.setItem('isSetKey', '1');
+                        localStorage.setItem('apiKey', key);
+
+                        resolve(r);
+                    },
+                    error: function (xhr, status, error) {
+                        reject(err);
+                    }
+                });
+            });
         }
     };
 
-    dt.init();
+    dt.start();
 });

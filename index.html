@@ -5,16 +5,19 @@
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Document</title>
+    <title>레이드 보상을 알아보자</title>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 
-    <script src="./assets/data/datas.js"></script>
-    <script src="./assets/js/index.js"></script>
+    <script src="./assets/data/datas.js?v=1"></script>
+    <script src="./assets/js/index.js?v=1"></script>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
-    <!-- Swiper CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css"/>
+
+    <!--alertify-->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/alertifyjs/build/css/alertify.min.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/alertifyjs/build/css/themes/default.min.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/alertifyjs/build/alertify.min.js"></script>
 
     <style>
         p {
@@ -46,18 +49,28 @@
 
     <script id="card_template" type="text/template">
         <div class="card border-primary mb-3" style="max-width: 27rem;">
-            <div class="card-header">{{title}} <div style="float: right">더보기 <input type="checkbox"></div></div>
+            <div class="card-header">{{title}} <div style="float: right">더보기 <input type="checkbox" class="see-more-checkbox" onchange="dt.checkSeeMore(this)"></div></div>
             <div class="card-body text-primary">
                 <h5 class="card-title">클리어 골드: {{clear_gold}}원</h5>
                 <hr>
-                <p class="card-text">보상 골드 가치: {{rewards_value}}원</p>
-                <hr>
+                <div class="is-key">
+                    <p class="card-text">보상 골드 가치: {{rewards_value}}원</p>
+                    <hr>
+                </div>
+                <div class="see-more-check">
+                    <p class="card-text">더보기 골드: <span style="color: red;">-{{see_more_gold}}원</span></p>
+                    <hr>
+                    <div class="is-key">
+                        <p class="card-text">더보기 보상 골드 가치: {{see_more_rewards_value}}원</p>
+                        <hr>
+                    </div>
+                </div>
 
-                <div class="details">
+                <div class="details is-key">
                     {{details}}
                     <hr>
                 </div>
-                <p class="card-text pointer view-detail" data-view="hidden" onclick="dt.viewDetail(this);">상세보기</p>
+                <p class="card-text pointer view-detail is-key" data-view="hidden" onclick="dt.viewDetail(this);">상세보기</p>
             </div>
         </div>
     </script>
@@ -83,7 +96,7 @@
     </script>
 
     <script id="gateway_see_more_template" type="text/template">
-        <p class="card-text">더모기 골드: {{gold}}원</p>
+        <p class="card-text">더보기 골드: {{gold}}원</p>
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-element-bundle.min.js"></script>
